@@ -1,0 +1,32 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.0.8'
+    id 'org.springframework.boot' version '2.2.6.RELEASE'
+    id 'io.spring.dependency-management' version '1.0.9.RELEASE'
+    id 'io.freefair.lombok' version '5.0.0-rc6'
+}
+
+javafx {
+    version = '11'
+    modules = ['javafx.controls', 'javafx.fxml']
+}
+
+wrapper {
+    gradleVersion = '6.3'
+    distributionType = Wrapper.DistributionType.ALL
+}
+
+sourceCompatibility = JavaVersion.VERSION_11
+
+group 'pl.greywarden.tools'
+version '0.0.1-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+}
+
