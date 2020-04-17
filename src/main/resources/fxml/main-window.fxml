@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.Menu?>
+
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.SeparatorMenuItem?>
+<?import javafx.scene.layout.VBox?>
+
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+<?import javafx.scene.control.ToolBar?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.Separator?>
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="pl.greywarden.tools.controller.MainWindowController"
+      prefHeight="400.0" prefWidth="600.0">
+
+    <MenuBar>
+        <Menu text="%file">
+            <MenuItem text="%file.new-database" onAction="#createNewDatabase">
+                <graphic>
+                    <FontIcon iconLiteral="mdi-file" iconSize="16"/>
+                </graphic>
+            </MenuItem>
+            <MenuItem text="%file.open-database">
+                <graphic>
+                    <FontIcon iconLiteral="mdi-folder" iconSize="16"/>
+                </graphic>
+            </MenuItem>
+            <MenuItem text="%file.save" disable="true">
+                <graphic>
+                    <FontIcon iconLiteral="mdi-content-save" iconSize="16"/>
+                </graphic>
+            </MenuItem>
+            <MenuItem text="%file.save-as">
+                <graphic>
+                    <FontIcon iconLiteral="mdi-content-save-all" iconSize="16"/>
+                </graphic>
+            </MenuItem>
+            <SeparatorMenuItem/>
+            <MenuItem text="%file.settings">
+                <graphic>
+                    <FontIcon iconLiteral="gmi-settings" iconSize="16"/>
+                </graphic>
+            </MenuItem>
+            <MenuItem text="%file.exit" onAction="#exit">
+                <graphic>
+                    <FontIcon iconLiteral="gmi-exit-to-app" iconSize="16"/>
+                </graphic>
+            </MenuItem>
+        </Menu>
+    </MenuBar>
+    <ToolBar>
+        <Button onAction="#createNewDatabase">
+            <graphic>
+                <FontIcon iconLiteral="mdi-file" iconSize="24"/>
+            </graphic>
+        </Button>
+        <Separator/>
+        <Button onAction="#exit">
+            <graphic>
+                <FontIcon iconLiteral="gmi-exit-to-app" iconSize="24"/>
+            </graphic>
+        </Button>
+    </ToolBar>
+    <HBox VBox.vgrow="ALWAYS">
+        <VBox id="controlPanel" disable="true" spacing="1.5">
+            <Button text="%control-panel.create-entry"/>
+            <Button text="%control-panel.modify-columns"/>
+            <Button text="%control-panel.generate-report"/>
+            <Button text="%control-panel.search"/>
+        </VBox>
+        <TableView fx:id="items" disable="true" HBox.hgrow="ALWAYS">
+            <placeholder>
+                <Label/>
+            </placeholder>
+        </TableView>
+    </HBox>
+
+
+</VBox>

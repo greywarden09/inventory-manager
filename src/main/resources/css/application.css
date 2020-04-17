@@ -1,0 +1,28 @@
+.tool-bar .button {
+    -fx-border-width: 1px;
+    -fx-border-color: rgba(51, 51, 51, 0.38);
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+#controlPanel {
+    -fx-min-width: 190px;
+    -fx-padding: 5px;
+}
+
+#controlPanel .button {
+    -fx-min-width: 190px;
+}
+
+.text-field.error {
+    -fx-text-box-border: red;
+    -fx-focus-color: red;
+}
+.table-view.error {
+    -fx-border-width: 0.5;
+    -fx-border-color: red
+}
+
+.text-bold {
+    -fx-font-weight: bold;
+}

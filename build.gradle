@@ -18,6 +18,7 @@ wrapper {
 }
 
 sourceCompatibility = JavaVersion.VERSION_11
+mainClassName = 'pl.greywarden.tools.InventoryManager'
 
 group 'pl.greywarden.tools'
 version '0.0.1-SNAPSHOT'
@@ -28,5 +29,15 @@ repositories {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
+
+    implementation 'org.kordamp.ikonli:ikonli-javafx:11.3.4'
+    implementation 'org.kordamp.ikonli:ikonli-material-pack:11.3.4'
+    implementation 'org.kordamp.ikonli:ikonli-materialdesign-pack:11.3.4'
+
+    implementation 'org.apache.commons:commons-lang3:3.10'
+    implementation 'com.google.guava:guava:29.0-jre'
+
+    implementation 'org.controlsfx:controlsfx:11.0.1'
+    implementation 'org.apache.commons:commons-collections4:4.4'
 }
 
