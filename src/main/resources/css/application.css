@@ -18,6 +18,11 @@
     -fx-text-box-border: red;
     -fx-focus-color: red;
 }
+.text-field-table-cell.error {
+    -fx-text-box-border: red;
+    -fx-focus-color: red;
+}
+
 .table-view.error {
     -fx-border-width: 0.5;
     -fx-border-color: red

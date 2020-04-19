@@ -27,18 +27,27 @@ import pl.greywarden.tools.component.EncryptionTypeComboBox;
 import pl.greywarden.tools.component.PasswordFieldWithValidation;
 import pl.greywarden.tools.component.TableViewWithValidation;
 import pl.greywarden.tools.component.TextFieldWithValidation;
-import pl.greywarden.tools.model.CreateDatabaseRequest;
+import pl.greywarden.tools.model.database.ColumnType;
+import pl.greywarden.tools.model.event.CreateDatabaseRequest;
 import pl.greywarden.tools.model.InventoryItemColumn;
+import pl.greywarden.tools.service.ApplicationSettingsService;
 import pl.greywarden.tools.service.DatabaseService;
+import pl.greywarden.tools.service.FileService;
 
 import java.net.URL;
+import java.text.MessageFormat;
 import java.util.ResourceBundle;
+import java.util.function.Consumer;
 
 @Controller
 @RequiredArgsConstructor
 public class CreateDatabaseController implements Initializable {
+    public static final String DEFAULT_DATABASE_PATH_PROPERTY = "default-database-path";
+
     private final EventBus eventBus;
     private final DatabaseService databaseService;
+    private final FileService fileService;
+    private final ApplicationSettingsService applicationSettingsService;
 
     private final SimpleBooleanProperty dirtyProperty = new SimpleBooleanProperty(false);
     private final SimpleBooleanProperty isValidProperty = new SimpleBooleanProperty(false);
@@ -61,7 +70,7 @@ public class CreateDatabaseController implements Initializable {
     @FXML
     private Button createColumnButton;
     @FXML
-    private ComboBox<InventoryItemColumn.ColumnType> columnTypes;
+    private ComboBox<ColumnType> columnTypes;
     @FXML
     private TableViewWithValidation<InventoryItemColumn> databaseStructure;
     @FXML
@@ -71,14 +80,18 @@ public class CreateDatabaseController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         this.resourceBundle = resources;
 
-        columnTypes.setItems(FXCollections.observableArrayList(InventoryItemColumn.ColumnType.values()));
+        var defaultDatabasePath = applicationSettingsService.getString(DEFAULT_DATABASE_PATH_PROPERTY, System.getProperty("user.home"));
+        databaseDirectory.setDefaultValue(defaultDatabasePath);
+        databaseDirectory.setText(defaultDatabasePath);
+        databaseDirectory.textProperty().addListener(observable -> dirtyProperty.set(true));
+
+        columnTypes.setItems(FXCollections.observableArrayList(ColumnType.values()));
         columnTypes.getSelectionModel().selectFirst();
 
         createColumnButton.disableProperty().bind(newColumnName.textProperty().isEmpty());
 
         databaseStructure.getItems().addListener((ListChangeListener<? super InventoryItemColumn>) change -> dirtyProperty.set(true));
         databaseName.textProperty().addListener(observable -> dirtyProperty.set(true));
-        databaseDirectory.textProperty().addListener(observable -> dirtyProperty.set(true));
 
         isValidProperty.bind(
                 databaseName.validProperty()
@@ -111,7 +124,7 @@ public class CreateDatabaseController implements Initializable {
             databaseStructure.getItems().add(new InventoryItemColumn(newColumnName.getText(), columnType));
             newColumnName.setText(null);
             if (containsIdColumn()) {
-                columnTypes.getItems().remove(InventoryItemColumn.ColumnType.ID);
+                columnTypes.getItems().remove(ColumnType.ID);
             }
             if (columnTypes.getSelectionModel().getSelectedItem() == null) {
                 columnTypes.getSelectionModel().selectFirst();
@@ -135,7 +148,7 @@ public class CreateDatabaseController implements Initializable {
             var selectedItem = databaseStructure.getSelectionModel().getSelectedItem();
             databaseStructure.getItems().remove(selectedItem);
             if (!containsIdColumn()) {
-                columnTypes.setItems(FXCollections.observableArrayList(InventoryItemColumn.ColumnType.values()));
+                columnTypes.setItems(FXCollections.observableArrayList(ColumnType.values()));
             }
         }
     }
@@ -143,36 +156,65 @@ public class CreateDatabaseController implements Initializable {
     @FXML
     private void cancel() {
         if (dirtyProperty.get()) {
-            var alert = new Alert(Alert.AlertType.CONFIRMATION, resourceBundle.getString("create-database.confirm-cancel"), ButtonType.YES, ButtonType.NO);
-            alert.setTitle(resourceBundle.getString("create-database.confirm-cancel-title"));
-            alert.setHeaderText(null);
-            alert.setGraphic(null);
-            bringAlertTop(alert);
-            alert.showAndWait().filter(ButtonType.YES::equals).ifPresent(b -> clearAndClose());
+            showConfirmationDialog("create-database.confirm-cancel", "create-database.confirm-cancel-title",
+                    buttonType -> {
+                        if (buttonType.equals(ButtonType.YES)) {
+                            clearAndClose();
+                        }
+                    });
         } else {
             clearAndClose();
         }
     }
 
+    private void showConfirmationDialog(String messageKey, String titleKey, Consumer<ButtonType> handler, Object... args) {
+        var formatter = new MessageFormat("");
+        formatter.applyPattern(resourceBundle.getString(messageKey));
+        var message = formatter.format(args);
+        var alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.YES, ButtonType.NO);
+        alert.setTitle(resourceBundle.getString(titleKey));
+        alert.setHeaderText(null);
+        alert.setGraphic(null);
+        bringAlertTop(alert);
+        alert.showAndWait().ifPresent(handler);
+    }
+
     @FXML
     private void createDatabase() {
         validateInput();
+        var databasePath = databaseService.getDatabasePath(databaseDirectory.getText(), databaseName.getText());
         if (isValidProperty.get()) {
-            CreateDatabaseRequest request = new CreateDatabaseRequest()
-                    .withDatabasePath(databaseService.getDatabasePath(databaseDirectory.getText(), databaseName.getText()))
-                    .withColumns(databaseStructure.getItems())
-                    .withEncryption(enableEncryption.isSelected());
-            if (enableEncryption.isSelected()) {
-                request = request.withEncryptionType(encryptionType.getValue());
+            if (fileService.hasReadWritePermission(databaseDirectory.getText())) {
+                if (fileService.exists(databasePath)) {
+                    showConfirmationDialog("create-database.file-exists", "create-database.file-exists.title", buttonType -> {
+                        if (buttonType.equals(ButtonType.YES)) {
+                            createAndPostDatabaseCreationRequest(databasePath);
+                            clearAndClose();
+                        }
+                    }, databasePath);
+                } else {
+                    createAndPostDatabaseCreationRequest(databasePath);
+                    clearAndClose();
+                }
+            } else {
+                showWarningDialog("create-database.no-permission", "create-database.no-permission.title", databasePath);
             }
-            eventBus.post(request);
         } else {
-            var alert = new Alert(Alert.AlertType.WARNING, resourceBundle.getString("create-database.validation-error"));
-            alert.setHeaderText(null);
-            alert.setTitle(resourceBundle.getString("create-database.validation-error.title"));
-            bringAlertTop(alert);
-            alert.show();
+            showWarningDialog("create-database.validation-error", "create-database.validation-error.title");
         }
+    }
+
+    private void createAndPostDatabaseCreationRequest(String databasePath) {
+        var request = new CreateDatabaseRequest()
+                .withDatabasePath(databasePath)
+                .withColumns(databaseStructure.getItems())
+                .withEncryption(enableEncryption.isSelected());
+        if (enableEncryption.isSelected()) {
+            request = request.withEncryptionType(encryptionType.getValue());
+        }
+        eventBus.post(request);
+        applicationSettingsService.setProperty(DEFAULT_DATABASE_PATH_PROPERTY, databaseDirectory.getText());
+        databaseDirectory.setDefaultValue(databaseDirectory.getText());
     }
 
     private void bringAlertTop(Alert alert) {
@@ -194,7 +236,7 @@ public class CreateDatabaseController implements Initializable {
 
     private Boolean validateEncryptionPassword(String password) {
         if (enableEncryption.isSelected()) {
-            return StringUtils.isNotEmpty(encryptionPassword.getText());
+            return StringUtils.isNotEmpty(password);
         }
         return true;
     }
@@ -211,7 +253,7 @@ public class CreateDatabaseController implements Initializable {
     }
 
     private boolean containsIdColumn() {
-        return databaseStructure.getItems().stream().map(InventoryItemColumn::getColumnType).anyMatch(InventoryItemColumn.ColumnType.ID::equals);
+        return databaseStructure.getItems().stream().map(InventoryItemColumn::getColumnType).anyMatch(ColumnType.ID::equals);
     }
 
     private boolean containsColumnWithName(String name) {
@@ -233,19 +275,25 @@ public class CreateDatabaseController implements Initializable {
     }
 
     private void clear() {
-        databaseName.setText(null);
         databaseName.invalidate();
-
-        databaseDirectory.setText(null);
         databaseDirectory.invalidate();
+        databaseStructure.invalidate();
 
         newColumnName.setText(null);
 
-        databaseStructure.getItems().clear();
-        databaseStructure.invalidate();
-
-        columnTypes.setItems(FXCollections.observableArrayList(InventoryItemColumn.ColumnType.values()));
+        columnTypes.setItems(FXCollections.observableArrayList(ColumnType.values()));
         columnTypes.getSelectionModel().selectFirst();
+    }
+
+    private void showWarningDialog(String messageKey, String titleKey, Object... args) {
+        var formatter = new MessageFormat("");
+        formatter.applyPattern(resourceBundle.getString(messageKey));
+        var errorMessage = formatter.format(args);
+        var alert = new Alert(Alert.AlertType.WARNING, errorMessage);
+        alert.setHeaderText(null);
+        alert.setTitle(resourceBundle.getString(titleKey));
+        bringAlertTop(alert);
+        alert.show();
     }
 
 }

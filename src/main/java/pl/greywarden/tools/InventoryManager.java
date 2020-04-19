@@ -5,12 +5,10 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ConfigurableApplicationContext;
 import pl.greywarden.tools.configuration.MainWindowConfiguration;
 
 @SpringBootApplication
 public class InventoryManager extends Application {
-    private ConfigurableApplicationContext springContext;
     private MainWindowConfiguration mainWindowConfiguration;
 
     public static void main(String[] args) {
@@ -19,7 +17,7 @@ public class InventoryManager extends Application {
 
     @Override
     public void init() {
-        springContext = SpringApplication.run(InventoryManager.class);
+        var springContext = SpringApplication.run(InventoryManager.class);
         mainWindowConfiguration = springContext.getBean("mainWindowConfiguration", MainWindowConfiguration.class);
     }
 

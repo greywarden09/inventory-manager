@@ -1,19 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.MenuBar?>
-<?import javafx.scene.control.Menu?>
-
-<?import javafx.scene.control.MenuItem?>
-<?import javafx.scene.control.SeparatorMenuItem?>
-<?import javafx.scene.layout.VBox?>
-
-<?import org.kordamp.ikonli.javafx.FontIcon?>
-<?import javafx.scene.control.ToolBar?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
 <?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.SeparatorMenuItem?>
+<?import javafx.scene.control.ToolBar?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+<?import pl.greywarden.tools.component.DatabaseTableView?>
 <VBox xmlns="http://javafx.com/javafx"
       xmlns:fx="http://javafx.com/fxml"
       fx:controller="pl.greywarden.tools.controller.MainWindowController"
@@ -60,6 +57,11 @@
                 <FontIcon iconLiteral="mdi-file" iconSize="24"/>
             </graphic>
         </Button>
+        <Button onAction="#loadDatabase">
+            <graphic>
+                <FontIcon iconLiteral="mdi-folder" iconSize="24"/>
+            </graphic>
+        </Button>
         <Separator/>
         <Button onAction="#exit">
             <graphic>
@@ -68,17 +70,13 @@
         </Button>
     </ToolBar>
     <HBox VBox.vgrow="ALWAYS">
-        <VBox id="controlPanel" disable="true" spacing="1.5">
+        <VBox fx:id="controlPanel" disable="true" spacing="1.5">
             <Button text="%control-panel.create-entry"/>
             <Button text="%control-panel.modify-columns"/>
             <Button text="%control-panel.generate-report"/>
             <Button text="%control-panel.search"/>
         </VBox>
-        <TableView fx:id="items" disable="true" HBox.hgrow="ALWAYS">
-            <placeholder>
-                <Label/>
-            </placeholder>
-        </TableView>
+        <DatabaseTableView fx:id="databaseContent" disable="true" HBox.hgrow="ALWAYS"/>
     </HBox>
 
 

@@ -1,7 +1,9 @@
 package pl.greywarden.tools.component;
 
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.control.Tooltip;
 import org.controlsfx.control.textfield.CustomTextField;
 import org.kordamp.ikonli.javafx.FontIcon;
@@ -12,6 +14,7 @@ public class TextFieldWithValidation extends CustomTextField {
     private final FontIcon errorMark = new FontIcon("gmi-error-outline");
     private final BooleanProperty validProperty = new SimpleBooleanProperty(false);
     private final Tooltip errorMessageTooltip = new Tooltip();
+    private final ObjectProperty<String> defaultValue = new SimpleObjectProperty<>(null);
 
     public TextFieldWithValidation() {
         super();
@@ -40,6 +43,7 @@ public class TextFieldWithValidation extends CustomTextField {
     }
 
     public void invalidate() {
+        textProperty().set(defaultValue.getValue());
         errorMark.setVisible(false);
         validProperty.set(false);
         setTooltip(null);
@@ -47,5 +51,13 @@ public class TextFieldWithValidation extends CustomTextField {
 
     public BooleanProperty validProperty() {
         return validProperty;
+    }
+
+    public void setDefaultValue(String defaultValue) {
+        this.defaultValue.setValue(defaultValue);
+    }
+
+    public ObjectProperty<String> getDefaultValue() {
+        return defaultValue;
     }
 }

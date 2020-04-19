@@ -22,7 +22,7 @@ public class EventBusConfiguration {
     @PostConstruct
     public void initializeListeners() {
         var eventBus = eventBus();
-        springContext.getBeansOfType(EventListener.class).values().forEach(eventBus::register);
+        springContext.getBeansWithAnnotation(EventListener.class).values().forEach(eventBus::register);
     }
 
 }

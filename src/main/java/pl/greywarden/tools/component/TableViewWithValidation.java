@@ -29,6 +29,7 @@ public class TableViewWithValidation<T> extends TableView<T> {
     }
 
     public void invalidate() {
+        getItems().clear();
         validProperty.set(false);
         setTooltip(null);
     }
