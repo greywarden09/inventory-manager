@@ -66,7 +66,9 @@ public class DatabaseService {
 
         objectMapper.writeValue(new BufferedOutputStream(new FileOutputStream(path)), database);
         var eventBus = springContext.getBeanFactory().getBean(EventBus.class);
-        eventBus.post(new LoadDatabaseRequest(database));
+        var loadDatabaseRequest = new LoadDatabaseRequest(database);
+        loadDatabaseRequest.setPassword(encryptionPassword);
+        eventBus.post(loadDatabaseRequest);
     }
 
     @Subscribe

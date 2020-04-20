@@ -155,7 +155,7 @@ public class CreateDatabaseController implements Initializable {
     }
 
     @FXML
-    private void cancel() {
+    public void cancel() {
         if (dirtyProperty.get()) {
             showConfirmationDialog("create-database.confirm-cancel", "create-database.confirm-cancel-title",
                     buttonType -> {

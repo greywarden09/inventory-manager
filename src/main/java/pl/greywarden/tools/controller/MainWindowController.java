@@ -75,8 +75,9 @@ public class MainWindowController implements Initializable {
     @Subscribe
     public void loadDatabase(LoadDatabaseRequest loadDatabaseRequest) {
         var database = loadDatabaseRequest.getDatabase();
+        var content = database.getDatabaseContent();
         var encryption = database.isEncryption();
-        if (encryption) {
+        if (encryption && content instanceof String) {
             var decryptedContent = decryptDatabaseContent(database.getDatabaseContent(), database.getEncryptionType());
             if (decryptedContent == null) {
                 return;

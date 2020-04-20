@@ -13,6 +13,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
+import pl.greywarden.tools.controller.CreateDatabaseController;
 
 import javax.annotation.PostConstruct;
 import java.util.Locale;
@@ -23,6 +24,7 @@ import java.util.ResourceBundle;
 @RequiredArgsConstructor
 public class CreateDatabaseDialogConfiguration {
     private final ConfigurableApplicationContext springContext;
+    private final CreateDatabaseController createDatabaseController;
 
     @Value("classpath:css/application.css")
     private Resource applicationCss;
@@ -54,6 +56,10 @@ public class CreateDatabaseDialogConfiguration {
         stage.initStyle(StageStyle.UTILITY);
         stage.setScene(scene);
         stage.setTitle(bundle.getString("create-database.window-title"));
+        stage.setOnCloseRequest(event -> {
+            createDatabaseController.cancel();
+            event.consume();
+        });
 
         return stage;
     }
