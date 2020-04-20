@@ -15,6 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 public class CreateDatabaseRequest {
     private String databasePath;
+    private String encryptionPassword;
     private List<InventoryItemColumn> columns;
     private boolean encryption;
     private EncryptionType encryptionType;

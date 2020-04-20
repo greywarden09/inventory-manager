@@ -6,41 +6,64 @@ import javafx.application.Platform;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableMap;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Controller;
+import pl.greywarden.tools.EncryptionType;
 import pl.greywarden.tools.component.DatabaseTableView;
+import pl.greywarden.tools.component.PasswordInputDialog;
 import pl.greywarden.tools.component.columns.BooleanTableColumn;
 import pl.greywarden.tools.component.columns.IdTableColumn;
 import pl.greywarden.tools.listener.EventListener;
 import pl.greywarden.tools.model.database.Database;
+import pl.greywarden.tools.model.database.DatabaseContent;
 import pl.greywarden.tools.model.event.LoadDatabaseFromFile;
 import pl.greywarden.tools.model.event.LoadDatabaseRequest;
+import pl.greywarden.tools.service.EncryptionService;
 
 import java.net.URL;
 import java.util.ResourceBundle;
+
+import static javafx.stage.FileChooser.ExtensionFilter;
 
 @Controller
 @EventListener
 @RequiredArgsConstructor
 public class MainWindowController implements Initializable {
     private final ConfigurableApplicationContext springContext;
-    public VBox controlPanel;
+    private final EncryptionService encryptionService;
     public DatabaseTableView databaseContent;
     private final ObjectProperty<Database> database = new SimpleObjectProperty<>();
+
+    @FXML
+    private VBox controlPanel;
+    @FXML
+    private VBox mainWindow;
+
+    private ResourceBundle resourceBundle;
+
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
+        databaseContent.setEditable(true);
+        this.resourceBundle = resources;
+    }
 
     @FXML
     public void exit() {
         Platform.exit();
     }
 
-    public void createNewDatabase() {
+    @FXML
+    private void createNewDatabase() {
         var createDatabaseDialog = springContext.getBean("createDatabaseDialog", Stage.class);
         if (!createDatabaseDialog.isShowing()) {
             createDatabaseDialog.show();
@@ -48,15 +71,25 @@ public class MainWindowController implements Initializable {
         }
     }
 
+
     @Subscribe
     public void loadDatabase(LoadDatabaseRequest loadDatabaseRequest) {
+        var database = loadDatabaseRequest.getDatabase();
+        var encryption = database.isEncryption();
+        if (encryption) {
+            var decryptedContent = decryptDatabaseContent(database.getDatabaseContent(), database.getEncryptionType());
+            if (decryptedContent == null) {
+                return;
+            }
+            database.setDatabaseContent(decryptedContent);
+        }
+
         databaseContent.getItems().clear();
         databaseContent.getColumns().clear();
 
-        var database = loadDatabaseRequest.getDatabase();
         this.database.setValue(database);
 
-        var columns = database.getDatabaseContent().getColumns();
+        var columns = database.<DatabaseContent>getDatabaseContent().getColumns();
         for (var column : columns) {
             switch (column.getType()) {
                 case ID:
@@ -71,7 +104,7 @@ public class MainWindowController implements Initializable {
                     break;
             }
         }
-        for (var entry: database.getDatabaseContent().getData()) {
+        for (var entry: database.<DatabaseContent>getDatabaseContent().getData()) {
             var observable = FXCollections.observableMap(entry);
             databaseContent.getItems().add(observable);
         }
@@ -80,19 +113,48 @@ public class MainWindowController implements Initializable {
         databaseContent.setDisable(false);
     }
 
-    public void loadDatabase() {
+    @FXML
+    private void loadDatabase() {
         var eventBus = springContext.getBean(EventBus.class);
 
         var fileChooser = new FileChooser();
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Database", "*.db"));
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("All files", "*"));
+        fileChooser.getExtensionFilters().add(new ExtensionFilter(resourceBundle.getString("main-window.file-chooser.db-file-type"), "*.db"));
+        fileChooser.getExtensionFilters().add(new ExtensionFilter(resourceBundle.getString("main-window.file-chooser.all-files"), "*"));
 
         var databaseFile = fileChooser.showOpenDialog(null);
         eventBus.post(new LoadDatabaseFromFile(databaseFile));
     }
 
-    @Override
-    public void initialize(URL location, ResourceBundle resources) {
-        databaseContent.setEditable(true);
+    private DatabaseContent decryptDatabaseContent(String encryptedContent, EncryptionType encryptionType) {
+        var dialog = new PasswordInputDialog(resourceBundle.getString("main-window.password-prompt.password"));
+        dialog.setTitle(resourceBundle.getString("main-window.password-prompt.title"));
+
+        var password = dialog.showAndWait().orElse(null);
+        if (password != null) {
+            try {
+                return encryptionService.decryptDatabaseContent(encryptedContent, password, encryptionType);
+            } catch (Exception e) {
+                showDecryptionFailedAlert();
+                return decryptDatabaseContent(encryptedContent, encryptionType);
+            }
+        } else {
+            return null;
+        }
+    }
+
+    private void showDecryptionFailedAlert() {
+        var alert = new Alert(Alert.AlertType.WARNING);
+        alert.getDialogPane().setContent(new Label(resourceBundle.getString("main-window.password-prompt.decryption-failed")));
+        bringAlertTop(alert);
+        alert.showAndWait();
+    }
+
+    private void bringAlertTop(Alert alert) {
+        var stage = (Stage) alert.getDialogPane().getScene().getWindow();
+        stage.initStyle(StageStyle.UTILITY);
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.initOwner(mainWindow.getScene().getWindow());
+        stage.setAlwaysOnTop(true);
+        stage.setOnShown(event -> stage.requestFocus());
     }
 }

@@ -1,5 +1,6 @@
 package pl.greywarden.tools.model.database;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,6 +14,12 @@ import pl.greywarden.tools.EncryptionType;
 public class Database {
     private String path;
     private boolean encryption;
+    private String encryptionPassword;
     private EncryptionType encryptionType;
-    private DatabaseContent databaseContent;
+    private Object databaseContent;
+    //private String encryptedContent;
+
+    public <T> T getDatabaseContent() {
+        return (T) databaseContent;
+    }
 }

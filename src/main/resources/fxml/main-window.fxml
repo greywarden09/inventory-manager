@@ -13,6 +13,7 @@
 <?import pl.greywarden.tools.component.DatabaseTableView?>
 <VBox xmlns="http://javafx.com/javafx"
       xmlns:fx="http://javafx.com/fxml"
+      fx:id="mainWindow"
       fx:controller="pl.greywarden.tools.controller.MainWindowController"
       prefHeight="400.0" prefWidth="600.0">
 

@@ -41,5 +41,6 @@ dependencies {
     implementation 'org.controlsfx:controlsfx:11.0.1'
     implementation 'org.apache.commons:commons-collections4:4.4'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.10.3'
+    implementation 'commons-codec:commons-codec:1.14'
 }
 

@@ -11,6 +11,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -171,7 +172,8 @@ public class CreateDatabaseController implements Initializable {
         var formatter = new MessageFormat("");
         formatter.applyPattern(resourceBundle.getString(messageKey));
         var message = formatter.format(args);
-        var alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.YES, ButtonType.NO);
+        var alert = new Alert(Alert.AlertType.CONFIRMATION, null, ButtonType.YES, ButtonType.NO);
+        alert.getDialogPane().setContent(new Label(message));
         alert.setTitle(resourceBundle.getString(titleKey));
         alert.setHeaderText(null);
         alert.setGraphic(null);
@@ -210,7 +212,9 @@ public class CreateDatabaseController implements Initializable {
                 .withColumns(databaseStructure.getItems())
                 .withEncryption(enableEncryption.isSelected());
         if (enableEncryption.isSelected()) {
-            request = request.withEncryptionType(encryptionType.getValue());
+            request = request
+                    .withEncryptionType(encryptionType.getValue())
+                    .withEncryptionPassword(encryptionPassword.getText());
         }
         eventBus.post(request);
         applicationSettingsService.setProperty(DEFAULT_DATABASE_PATH_PROPERTY, databaseDirectory.getText());

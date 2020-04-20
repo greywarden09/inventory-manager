@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 public class DatabaseService {
     private static final String DATABASE_EXTENSION = ".db";
     private final ConfigurableApplicationContext springContext;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public String getDatabasePath(String directory, String databaseName) {
         return Paths.get(directory, databaseName + DATABASE_EXTENSION).toString();
@@ -46,6 +46,7 @@ public class DatabaseService {
         var path = createDatabaseRequest.getDatabasePath();
         var encryption = createDatabaseRequest.isEncryption();
         var encryptionType = createDatabaseRequest.getEncryptionType();
+        var encryptionPassword = createDatabaseRequest.getEncryptionPassword();
         var content = new DatabaseContent();
         var data = new ArrayList<Map<String, Object>>();
         var columns = createDatabaseRequest.getColumns().stream().map(mapping -> {
@@ -60,6 +61,7 @@ public class DatabaseService {
                 .withPath(path)
                 .withEncryption(encryption)
                 .withEncryptionType(encryptionType)
+                .withEncryptionPassword(encryptionPassword)
                 .withDatabaseContent(content);
 
         objectMapper.writeValue(new BufferedOutputStream(new FileOutputStream(path)), database);
