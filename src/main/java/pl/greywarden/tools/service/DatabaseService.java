@@ -15,6 +15,7 @@ import pl.greywarden.tools.model.database.DatabaseContent;
 import pl.greywarden.tools.model.event.CreateDatabaseRequest;
 import pl.greywarden.tools.model.event.LoadDatabaseFromFile;
 import pl.greywarden.tools.model.event.LoadDatabaseRequest;
+import pl.greywarden.tools.model.event.SaveDatabaseRequest;
 
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -77,5 +78,14 @@ public class DatabaseService {
         var database = objectMapper.readValue(loadRequest.getDatabaseFile(), Database.class);
         var eventBus = springContext.getBeanFactory().getBean(EventBus.class);
         eventBus.post(new LoadDatabaseRequest(database));
+    }
+
+    @Subscribe
+    @SneakyThrows
+    public void saveDatabase(SaveDatabaseRequest request) {
+        var database = request.getDatabase();
+        var path = database.getPath();
+
+        objectMapper.writeValue(new BufferedOutputStream(new FileOutputStream(path)), database);
     }
 }

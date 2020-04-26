@@ -23,6 +23,8 @@ import pl.greywarden.tools.component.DatabaseTableView;
 import pl.greywarden.tools.component.PasswordInputDialog;
 import pl.greywarden.tools.component.columns.BooleanTableColumn;
 import pl.greywarden.tools.component.columns.IdTableColumn;
+import pl.greywarden.tools.component.columns.NumberTableColumn;
+import pl.greywarden.tools.component.columns.TextTableColumn;
 import pl.greywarden.tools.listener.EventListener;
 import pl.greywarden.tools.model.database.Database;
 import pl.greywarden.tools.model.database.DatabaseContent;
@@ -97,8 +99,10 @@ public class MainWindowController implements Initializable {
                     databaseContent.getColumns().add(new IdTableColumn(column.getName()));
                     break;
                 case TEXT:
+                    databaseContent.getColumns().add(new TextTableColumn(column.getName()));
                     break;
                 case NUMBER:
+                    databaseContent.getColumns().add(new NumberTableColumn(column.getName()));
                     break;
                 case BOOLEAN:
                     databaseContent.getColumns().add(new BooleanTableColumn(column.getName()));
