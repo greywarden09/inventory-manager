@@ -6,7 +6,7 @@ import lombok.SneakyThrows;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.stereotype.Service;
-import pl.greywarden.tools.EncryptionType;
+import pl.greywarden.tools.model.EncryptionType;
 import pl.greywarden.tools.model.database.DatabaseContent;
 
 import javax.crypto.Cipher;

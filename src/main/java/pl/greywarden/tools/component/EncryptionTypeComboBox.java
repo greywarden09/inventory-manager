@@ -4,7 +4,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.util.Callback;
-import pl.greywarden.tools.EncryptionType;
+import pl.greywarden.tools.model.EncryptionType;
 
 public class EncryptionTypeComboBox extends ComboBox<EncryptionType> {
     public EncryptionTypeComboBox() {

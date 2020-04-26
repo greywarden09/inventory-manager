@@ -1,4 +1,4 @@
-package pl.greywarden.tools;
+package pl.greywarden.tools.model;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

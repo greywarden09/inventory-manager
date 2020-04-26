@@ -3,13 +3,16 @@ package pl.greywarden.tools.controller;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import javafx.application.Platform;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
@@ -18,14 +21,15 @@ import javafx.stage.StageStyle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Controller;
-import pl.greywarden.tools.EncryptionType;
 import pl.greywarden.tools.component.DatabaseTableView;
+import pl.greywarden.tools.component.MenuItemWithIcon;
 import pl.greywarden.tools.component.PasswordInputDialog;
 import pl.greywarden.tools.component.columns.BooleanTableColumn;
 import pl.greywarden.tools.component.columns.IdTableColumn;
 import pl.greywarden.tools.component.columns.NumberTableColumn;
 import pl.greywarden.tools.component.columns.TextTableColumn;
 import pl.greywarden.tools.listener.EventListener;
+import pl.greywarden.tools.model.EncryptionType;
 import pl.greywarden.tools.model.database.Database;
 import pl.greywarden.tools.model.database.DatabaseContent;
 import pl.greywarden.tools.model.event.LoadDatabaseFromFile;
@@ -45,7 +49,10 @@ public class MainWindowController implements Initializable {
     private final EncryptionService encryptionService;
     public DatabaseTableView databaseContent;
     private final ObjectProperty<Database> database = new SimpleObjectProperty<>();
+    private final BooleanProperty dirtyProperty = new SimpleBooleanProperty(false);
 
+    @FXML
+    private MenuItemWithIcon saveDatabaseMenuItem;
     @FXML
     private VBox controlPanel;
     @FXML
@@ -57,10 +64,19 @@ public class MainWindowController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         databaseContent.setEditable(true);
         this.resourceBundle = resources;
+
+        saveDatabaseMenuItem.disableProperty().bind(dirtyProperty.not());
+        dirtyProperty.addListener(event -> {
+            if (((SimpleBooleanProperty) event).get()) {
+                setDirtyTitle();
+            } else {
+                setCleanTitle();
+            }
+        });
     }
 
     @FXML
-    public void exit() {
+    private void exit() {
         Platform.exit();
     }
 
@@ -114,8 +130,13 @@ public class MainWindowController implements Initializable {
             databaseContent.getItems().add(observable);
         }
 
+        for (var column: databaseContent.getColumns()) {
+            column.addEventHandler(TableColumn.editCommitEvent(), event -> dirtyProperty.set(true));
+        }
+
         controlPanel.setDisable(false);
         databaseContent.setDisable(false);
+        setCleanTitle();
     }
 
     @FXML
@@ -158,8 +179,28 @@ public class MainWindowController implements Initializable {
         var stage = (Stage) alert.getDialogPane().getScene().getWindow();
         stage.initStyle(StageStyle.UTILITY);
         stage.initModality(Modality.APPLICATION_MODAL);
-        stage.initOwner(mainWindow.getScene().getWindow());
+        stage.initOwner(getWindow());
         stage.setAlwaysOnTop(true);
         stage.setOnShown(event -> stage.requestFocus());
+    }
+
+    private Stage getWindow() {
+        return (Stage) mainWindow.getScene().getWindow();
+    }
+
+    private void setCleanTitle() {
+        var stage = getWindow();
+        var databasePath = database.get().getPath();
+        var applicationName = "Inventory Manager";
+
+        stage.setTitle(String.format("%s [%s]", applicationName, databasePath));
+    }
+
+    private void setDirtyTitle() {
+        var stage = getWindow();
+        var databasePath = database.get().getPath();
+        var applicationName = "Inventory Manager";
+
+        stage.setTitle(String.format("%s [%s*]", applicationName, databasePath));
     }
 }

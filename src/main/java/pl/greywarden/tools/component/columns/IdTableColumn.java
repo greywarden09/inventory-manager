@@ -28,7 +28,7 @@ public class IdTableColumn extends TableColumn<ObservableMap<String, Object>, Lo
             var column = getTableColumn();
             var oldValue = getItem();
             if (newValue.equals(oldValue)) {
-                super.commitEdit(newValue);
+                super.cancelEdit();
             } else {
                 var columnName = column.getText();
                 var uniqueId = table.getItems()

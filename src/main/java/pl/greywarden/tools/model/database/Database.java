@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.With;
-import pl.greywarden.tools.EncryptionType;
+import pl.greywarden.tools.model.EncryptionType;
 import pl.greywarden.tools.deserializer.DatabaseDeserializer;
 
 @Data

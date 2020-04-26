@@ -21,5 +21,15 @@ public class TextTableColumn extends TableColumn<ObservableMap<String, Object>, 
         public TextColumnTableCell() {
             super(new DefaultStringConverter());
         }
+
+        @Override
+        public void commitEdit(String newValue) {
+            var oldValue = getItem();
+            if (oldValue.equals(newValue)) {
+                super.cancelEdit();
+            } else {
+                super.commitEdit(newValue);
+            }
+        }
     }
 }
