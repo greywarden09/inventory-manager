@@ -1,5 +1,6 @@
 package pl.greywarden.tools.component;
 
+import javafx.application.Platform;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
@@ -22,5 +23,6 @@ public class PasswordInputDialog extends Dialog<String> {
         content.getChildren().addAll(new Label(getContentText()), passwordField);
         getDialogPane().setContent(content);
         setResultConverter(dialogButton -> dialogButton == ButtonType.OK ? passwordField.getText() : null);
+        Platform.runLater(passwordField::requestFocus);
     }
 }

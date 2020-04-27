@@ -31,3 +31,8 @@
 .text-bold {
     -fx-font-weight: bold;
 }
+
+.error {
+    -fx-text-box-border: red;
+    -fx-focus-color: red;
+}

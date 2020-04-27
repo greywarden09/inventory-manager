@@ -5,12 +5,16 @@ import com.google.common.eventbus.Subscribe;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.ReadOnlyDoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.layout.VBox;
@@ -21,6 +25,7 @@ import javafx.stage.StageStyle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Controller;
+import pl.greywarden.tools.component.ButtonWithIcon;
 import pl.greywarden.tools.component.DatabaseTableView;
 import pl.greywarden.tools.component.MenuItemWithIcon;
 import pl.greywarden.tools.component.PasswordInputDialog;
@@ -28,15 +33,23 @@ import pl.greywarden.tools.component.columns.BooleanTableColumn;
 import pl.greywarden.tools.component.columns.IdTableColumn;
 import pl.greywarden.tools.component.columns.NumberTableColumn;
 import pl.greywarden.tools.component.columns.TextTableColumn;
+import pl.greywarden.tools.configuration.MainWindowConfiguration;
 import pl.greywarden.tools.listener.EventListener;
-import pl.greywarden.tools.model.EncryptionType;
+import pl.greywarden.tools.model.database.Column;
 import pl.greywarden.tools.model.database.Database;
 import pl.greywarden.tools.model.database.DatabaseContent;
+import pl.greywarden.tools.model.event.CreateDatabaseRecordRequest;
 import pl.greywarden.tools.model.event.LoadDatabaseFromFile;
 import pl.greywarden.tools.model.event.LoadDatabaseRequest;
+import pl.greywarden.tools.model.event.SaveDatabaseRequest;
+import pl.greywarden.tools.service.ApplicationSettingsService;
+import pl.greywarden.tools.service.CreateRecordService;
 import pl.greywarden.tools.service.EncryptionService;
 
+import java.io.File;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ResourceBundle;
 
 import static javafx.stage.FileChooser.ExtensionFilter;
@@ -47,16 +60,26 @@ import static javafx.stage.FileChooser.ExtensionFilter;
 public class MainWindowController implements Initializable {
     private final ConfigurableApplicationContext springContext;
     private final EncryptionService encryptionService;
-    public DatabaseTableView databaseContent;
+    private final MainWindowConfiguration mainWindowConfiguration;
+    private final ApplicationSettingsService applicationSettingsService;
+    private final CreateRecordService createRecordService;
+
+    private final StringProperty databasePath = new SimpleStringProperty();
     private final ObjectProperty<Database> database = new SimpleObjectProperty<>();
     private final BooleanProperty dirtyProperty = new SimpleBooleanProperty(false);
+    private final ObjectProperty<File> initialDirectoryProperty = new SimpleObjectProperty<>();
+    private final ObjectProperty<List<Column>> columns = new SimpleObjectProperty<>(new ArrayList<>());
 
+    @FXML
+    private DatabaseTableView databaseContent;
     @FXML
     private MenuItemWithIcon saveDatabaseMenuItem;
     @FXML
     private VBox controlPanel;
     @FXML
     private VBox mainWindow;
+    @FXML
+    private ButtonWithIcon saveDatabaseButton;
 
     private ResourceBundle resourceBundle;
 
@@ -66,29 +89,11 @@ public class MainWindowController implements Initializable {
         this.resourceBundle = resources;
 
         saveDatabaseMenuItem.disableProperty().bind(dirtyProperty.not());
-        dirtyProperty.addListener(event -> {
-            if (((SimpleBooleanProperty) event).get()) {
-                setDirtyTitle();
-            } else {
-                setCleanTitle();
-            }
-        });
+        saveDatabaseButton.disableProperty().bind(dirtyProperty.not());
+        initializeMainWindow();
+        addDirtyPropertyListener();
+        configureInitialDirectory();
     }
-
-    @FXML
-    private void exit() {
-        Platform.exit();
-    }
-
-    @FXML
-    private void createNewDatabase() {
-        var createDatabaseDialog = springContext.getBean("createDatabaseDialog", Stage.class);
-        if (!createDatabaseDialog.isShowing()) {
-            createDatabaseDialog.show();
-            createDatabaseDialog.requestFocus();
-        }
-    }
-
 
     @Subscribe
     public void loadDatabase(LoadDatabaseRequest loadDatabaseRequest) {
@@ -96,7 +101,7 @@ public class MainWindowController implements Initializable {
         var content = database.getDatabaseContent();
         var encryption = database.isEncryption();
         if (encryption && content instanceof String) {
-            var decryptedContent = decryptDatabaseContent(database.getDatabaseContent(), database.getEncryptionType());
+            var decryptedContent = decryptDatabaseContent(database);
             if (decryptedContent == null) {
                 return;
             }
@@ -105,8 +110,7 @@ public class MainWindowController implements Initializable {
 
         databaseContent.getItems().clear();
         databaseContent.getColumns().clear();
-
-        this.database.setValue(database);
+        this.columns.get().clear();
 
         var columns = database.<DatabaseContent>getDatabaseContent().getColumns();
         for (var column : columns) {
@@ -124,6 +128,7 @@ public class MainWindowController implements Initializable {
                     databaseContent.getColumns().add(new BooleanTableColumn(column.getName()));
                     break;
             }
+            this.columns.get().add(column);
         }
         for (var entry: database.<DatabaseContent>getDatabaseContent().getData()) {
             var observable = FXCollections.observableMap(entry);
@@ -136,7 +141,55 @@ public class MainWindowController implements Initializable {
 
         controlPanel.setDisable(false);
         databaseContent.setDisable(false);
+        this.database.setValue(database);
+        this.databasePath.setValue(database.getPath());
         setCleanTitle();
+    }
+
+    @Subscribe
+    public void addDatabaseRecord(CreateDatabaseRecordRequest request) {
+        this.databaseContent.getItems().add(request.getDatabaseRecord());
+        dirtyProperty.set(true);
+    }
+
+    @FXML
+    public void exit() {
+        if (dirtyProperty.get()) {
+            showConfirmExitDialog();
+        }
+        Platform.exit();
+    }
+
+    private void showConfirmExitDialog() {
+        var eventBus = springContext.getBean(EventBus.class);
+
+        var alert = new Alert(Alert.AlertType.CONFIRMATION);
+        var closeWithoutSave = new ButtonType("Close without save");
+        var cancel = new ButtonType("Cancel");
+        var save = new ButtonType("Save");
+        alert.getDialogPane().getButtonTypes().setAll(closeWithoutSave, cancel, save);
+        alert.showAndWait().ifPresent(selectedOption -> {
+            if (selectedOption == closeWithoutSave) {
+                Platform.exit();
+            } else if (selectedOption == save) {
+                eventBus.post(new SaveDatabaseRequest(database.get()));
+                Platform.exit();
+            }
+        });
+    }
+
+    @FXML
+    private void createNewDatabase() {
+        var createDatabaseDialog = springContext.getBean("createDatabaseDialog", Stage.class);
+        if (!createDatabaseDialog.isShowing()) {
+            createDatabaseDialog.show();
+            createDatabaseDialog.requestFocus();
+        }
+    }
+
+    @FXML
+    private void createEntry() {
+        createRecordService.showCreateRecordDialog(columns.get(), databaseContent.getItems());
     }
 
     @FXML
@@ -144,24 +197,43 @@ public class MainWindowController implements Initializable {
         var eventBus = springContext.getBean(EventBus.class);
 
         var fileChooser = new FileChooser();
+        fileChooser.setInitialDirectory(initialDirectoryProperty.get());
         fileChooser.getExtensionFilters().add(new ExtensionFilter(resourceBundle.getString("main-window.file-chooser.db-file-type"), "*.db"));
         fileChooser.getExtensionFilters().add(new ExtensionFilter(resourceBundle.getString("main-window.file-chooser.all-files"), "*"));
 
         var databaseFile = fileChooser.showOpenDialog(null);
-        eventBus.post(new LoadDatabaseFromFile(databaseFile));
+        if (databaseFile != null) {
+            initialDirectoryProperty.setValue(databaseFile.getParentFile());
+            var loadDatabaseFromFile = new LoadDatabaseFromFile(databaseFile);
+            eventBus.post(loadDatabaseFromFile);
+        }
     }
 
-    private DatabaseContent decryptDatabaseContent(String encryptedContent, EncryptionType encryptionType) {
+    @FXML
+    private void saveDatabase() {
+        var eventBus = springContext.getBean(EventBus.class);
+        var saveDatabaseRequest = new SaveDatabaseRequest(database.get());
+
+        eventBus.post(saveDatabaseRequest);
+        dirtyProperty.set(false);
+    }
+
+    private DatabaseContent decryptDatabaseContent(Database database) {
+        var encryptedContent = database.<String>getDatabaseContent();
+        var encryptionType = database.getEncryptionType();
+
         var dialog = new PasswordInputDialog(resourceBundle.getString("main-window.password-prompt.password"));
         dialog.setTitle(resourceBundle.getString("main-window.password-prompt.title"));
 
         var password = dialog.showAndWait().orElse(null);
         if (password != null) {
             try {
-                return encryptionService.decryptDatabaseContent(encryptedContent, password, encryptionType);
+                var decryptedContent = encryptionService.decryptDatabaseContent(encryptedContent, password, encryptionType);
+                database.setEncryptionPassword(password);
+                return decryptedContent;
             } catch (Exception e) {
                 showDecryptionFailedAlert();
-                return decryptDatabaseContent(encryptedContent, encryptionType);
+                return decryptDatabaseContent(database);
             }
         } else {
             return null;
@@ -190,7 +262,7 @@ public class MainWindowController implements Initializable {
 
     private void setCleanTitle() {
         var stage = getWindow();
-        var databasePath = database.get().getPath();
+        var databasePath = this.databasePath.get();
         var applicationName = "Inventory Manager";
 
         stage.setTitle(String.format("%s [%s]", applicationName, databasePath));
@@ -198,9 +270,46 @@ public class MainWindowController implements Initializable {
 
     private void setDirtyTitle() {
         var stage = getWindow();
-        var databasePath = database.get().getPath();
+        var databasePath = this.databasePath.get();
         var applicationName = "Inventory Manager";
 
         stage.setTitle(String.format("%s [%s*]", applicationName, databasePath));
+    }
+
+    private void addDirtyPropertyListener() {
+        dirtyProperty.addListener(event -> {
+            if (((SimpleBooleanProperty) event).get()) {
+                var items = databaseContent.getItems();
+                this.database.get().<DatabaseContent>getDatabaseContent().setData(new ArrayList<>(items));
+                setDirtyTitle();
+            } else {
+                setCleanTitle();
+            }
+        });
+    }
+
+    private void configureInitialDirectory() {
+        initialDirectoryProperty.addListener(observable -> {
+            var newInitialDirectory = (SimpleObjectProperty<?>) observable;
+            applicationSettingsService.setProperty("initial-directory", newInitialDirectory.getValue().toString());
+        });
+        initialDirectoryProperty.setValue(new File(applicationSettingsService.getString("initial-directory", ".")));
+    }
+
+    private void initializeMainWindow() {
+        mainWindow.setPrefWidth(mainWindowConfiguration.getPrefWidth());
+        mainWindow.setPrefHeight(mainWindowConfiguration.getPrefHeight());
+        mainWindow.widthProperty().addListener(observable -> {
+            if (!getWindow().isMaximized()) {
+                var newWidth = (ReadOnlyDoubleProperty) observable;
+                mainWindowConfiguration.setPrefWidth(newWidth.get());
+            }
+        });
+        mainWindow.heightProperty().addListener(observable -> {
+            if (!getWindow().isMaximized()) {
+                var newHeight = (ReadOnlyDoubleProperty) observable;
+                mainWindowConfiguration.setPrefHeight(newHeight.get());
+            }
+        });
     }
 }

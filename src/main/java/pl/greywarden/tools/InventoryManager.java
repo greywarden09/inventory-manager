@@ -6,10 +6,12 @@ import javafx.stage.Stage;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import pl.greywarden.tools.configuration.MainWindowConfiguration;
+import pl.greywarden.tools.controller.MainWindowController;
 
 @SpringBootApplication
 public class InventoryManager extends Application {
     private MainWindowConfiguration mainWindowConfiguration;
+    private MainWindowController mainWindowController;
 
     public static void main(String[] args) {
         launch(args);
@@ -19,6 +21,7 @@ public class InventoryManager extends Application {
     public void init() {
         var springContext = SpringApplication.run(InventoryManager.class);
         mainWindowConfiguration = springContext.getBean("mainWindowConfiguration", MainWindowConfiguration.class);
+        mainWindowController = springContext.getBean(MainWindowController.class);
     }
 
     @Override
@@ -26,8 +29,10 @@ public class InventoryManager extends Application {
         Scene scene = mainWindowConfiguration.mainWindow();
 
         primaryStage.setTitle("Inventory Manager");
-        primaryStage.setMaximized(true);
+        primaryStage.setMaximized(mainWindowConfiguration.isMaximized());
+        primaryStage.maximizedProperty().addListener((observable, oldValue, newValue) -> mainWindowConfiguration.setMaximized(newValue));
         primaryStage.setScene(scene);
+        primaryStage.setOnCloseRequest(event -> mainWindowController.exit());
         primaryStage.show();
     }
 

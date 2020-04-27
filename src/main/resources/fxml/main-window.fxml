@@ -14,14 +14,13 @@
 <VBox xmlns="http://javafx.com/javafx"
       xmlns:fx="http://javafx.com/fxml"
       fx:id="mainWindow"
-      fx:controller="pl.greywarden.tools.controller.MainWindowController"
-      prefHeight="400.0" prefWidth="600.0">
+      fx:controller="pl.greywarden.tools.controller.MainWindowController">
 
     <MenuBar>
         <Menu text="%file">
             <MenuItemWithIcon text="%file.new-database" onAction="#createNewDatabase" icon="mdi-file"/>
-            <MenuItemWithIcon text="%file.open-database" icon="mdi-folder"/>
-            <MenuItemWithIcon text="%file.save" icon="mdi-content-save" fx:id="saveDatabaseMenuItem"/>
+            <MenuItemWithIcon text="%file.open-database" onAction="#loadDatabase" icon="mdi-folder"/>
+            <MenuItemWithIcon text="%file.save" onAction="#saveDatabase" icon="mdi-content-save" fx:id="saveDatabaseMenuItem"/>
             <MenuItemWithIcon text="%file.save-as" icon="mdi-content-save-all"/>
             <SeparatorMenuItem/>
             <MenuItemWithIcon text="%file.settings" icon="gmi-settings"/>
@@ -31,12 +30,13 @@
     <ToolBar>
         <ButtonWithIcon onAction="#createNewDatabase" icon="mdi-file"/>
         <ButtonWithIcon onAction="#loadDatabase" icon="mdi-folder"/>
+        <ButtonWithIcon onAction="#saveDatabase" icon="mdi-content-save" fx:id="saveDatabaseButton"/>
         <Separator/>
         <ButtonWithIcon onAction="#exit" icon="gmi-exit-to-app"/>
     </ToolBar>
     <HBox VBox.vgrow="ALWAYS">
         <VBox fx:id="controlPanel" disable="true" spacing="1.5">
-            <Button text="%control-panel.create-entry"/>
+            <Button text="%control-panel.create-entry" onAction="#createEntry"/>
             <Button text="%control-panel.modify-columns"/>
             <Button text="%control-panel.generate-report"/>
             <Button text="%control-panel.search"/>
