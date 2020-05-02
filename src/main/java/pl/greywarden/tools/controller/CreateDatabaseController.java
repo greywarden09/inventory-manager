@@ -1,9 +1,10 @@
 package pl.greywarden.tools.controller;
 
 import com.google.common.eventbus.EventBus;
+import javafx.application.Platform;
+import javafx.beans.InvalidationListener;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Alert;
@@ -29,10 +30,11 @@ import pl.greywarden.tools.component.PasswordFieldWithValidation;
 import pl.greywarden.tools.component.TableViewWithValidation;
 import pl.greywarden.tools.component.TextFieldWithValidation;
 import pl.greywarden.tools.model.database.ColumnType;
-import pl.greywarden.tools.model.event.CreateDatabaseRequest;
+import pl.greywarden.tools.model.event.request.CreateDatabaseRequest;
 import pl.greywarden.tools.model.InventoryItemColumn;
 import pl.greywarden.tools.service.ApplicationSettingsService;
 import pl.greywarden.tools.service.DatabaseService;
+import pl.greywarden.tools.service.DialogService;
 import pl.greywarden.tools.service.FileService;
 
 import java.net.URL;
@@ -49,10 +51,11 @@ public class CreateDatabaseController implements Initializable {
     private final DatabaseService databaseService;
     private final FileService fileService;
     private final ApplicationSettingsService applicationSettingsService;
+    private final DialogService dialogService;
 
     private final SimpleBooleanProperty dirtyProperty = new SimpleBooleanProperty(false);
     private final SimpleBooleanProperty isValidProperty = new SimpleBooleanProperty(false);
-    private ResourceBundle resourceBundle;
+    private final ResourceBundle resourceBundle;
 
     @FXML
     private VBox createDatabaseDialog;
@@ -79,9 +82,7 @@ public class CreateDatabaseController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        this.resourceBundle = resources;
-
-        var defaultDatabasePath = applicationSettingsService.getString(DEFAULT_DATABASE_PATH_PROPERTY, System.getProperty("user.home"));
+        var defaultDatabasePath = applicationSettingsService.getDefaultDatabasePath();
         databaseDirectory.setDefaultValue(defaultDatabasePath);
         databaseDirectory.setText(defaultDatabasePath);
         databaseDirectory.textProperty().addListener(observable -> dirtyProperty.set(true));
@@ -91,7 +92,7 @@ public class CreateDatabaseController implements Initializable {
 
         createColumnButton.disableProperty().bind(newColumnName.textProperty().isEmpty());
 
-        databaseStructure.getItems().addListener((ListChangeListener<? super InventoryItemColumn>) change -> dirtyProperty.set(true));
+        databaseStructure.getItems().addListener((InvalidationListener) change -> dirtyProperty.set(true));
         databaseName.textProperty().addListener(observable -> dirtyProperty.set(true));
 
         isValidProperty.bind(
@@ -177,7 +178,8 @@ public class CreateDatabaseController implements Initializable {
         alert.setTitle(resourceBundle.getString(titleKey));
         alert.setHeaderText(null);
         alert.setGraphic(null);
-        bringAlertTop(alert);
+
+        dialogService.bringAlertTop(getStage(), alert);
         alert.showAndWait().ifPresent(handler);
     }
 
@@ -217,7 +219,7 @@ public class CreateDatabaseController implements Initializable {
                     .withEncryptionPassword(encryptionPassword.getText());
         }
         eventBus.post(request);
-        applicationSettingsService.setProperty(DEFAULT_DATABASE_PATH_PROPERTY, databaseDirectory.getText());
+        applicationSettingsService.setDefaultDatabasePath(databaseDirectory.getText());
         databaseDirectory.setDefaultValue(databaseDirectory.getText());
     }
 
@@ -227,7 +229,7 @@ public class CreateDatabaseController implements Initializable {
         stage.initModality(Modality.APPLICATION_MODAL);
         stage.initOwner(getStage());
         stage.setAlwaysOnTop(true);
-        stage.setOnShown(event -> stage.requestFocus());
+        Platform.runLater(stage::requestFocus);
     }
 
     private void validateInput() {

@@ -1,12 +1,14 @@
 package pl.greywarden.tools.service;
 
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
@@ -14,11 +16,11 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextFormatter;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.controlsfx.validation.ValidationSupport;
 import org.controlsfx.validation.Validator;
 import org.controlsfx.validation.decoration.StyleClassValidationDecoration;
@@ -27,27 +29,32 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
-import pl.greywarden.tools.model.database.Column;
-import pl.greywarden.tools.model.event.CreateDatabaseRecordRequest;
+import pl.greywarden.tools.listener.EventListener;
+import pl.greywarden.tools.model.event.request.CreateDatabaseRecordRequest;
+import pl.greywarden.tools.model.event.response.CreateDatabaseRecord;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.ResourceBundle;
-import java.util.function.UnaryOperator;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@EventListener
 @RequiredArgsConstructor
 public class CreateRecordService {
     private final ConfigurableApplicationContext springContext;
+    private final ResourceBundle resourceBundle;
+
+    public static final String TEXT_FIELD_CLASS = ".text-field";
 
     @Value("classpath:css/application.css")
     private Resource applicationCss;
 
-    @SneakyThrows
-    public void showCreateRecordDialog(List<Column> columns, ObservableList<ObservableMap<String, Object>> database) {
-        var resourceBundle = ResourceBundle.getBundle("i18n/strings", Locale.getDefault());
+    @Subscribe
+    public void showCreateRecordDialog(CreateDatabaseRecordRequest createDatabaseRecordRequest) throws Exception {
+        var columns = createDatabaseRecordRequest.getColumns();
+        var database = createDatabaseRecordRequest.getDatabase();
 
         var eventBus = springContext.getBean(EventBus.class);
 
@@ -82,9 +89,10 @@ public class CreateRecordService {
             var label = new Label(name);
             switch (type) {
                 case ID:
-                    var idTextField = createIdTextField(name, database, validationSupport);
+                    var wrapper = createIdTextField(name, database, validationSupport);
+                    var idTextField = wrapper.lookup(TEXT_FIELD_CLASS);
                     inputs.add(idTextField);
-                    grid.addRow(rows++, label, idTextField);
+                    grid.addRow(rows++, label, wrapper);
                     break;
                 case TEXT:
                     var textArea = createTextArea(name);
@@ -92,7 +100,7 @@ public class CreateRecordService {
                     grid.addRow(rows++, label, textArea);
                     break;
                 case NUMBER:
-                    var numberTextField = createNumberTextField(name);
+                    var numberTextField = createNumberTextField(name, validationSupport);
                     inputs.add(numberTextField);
                     grid.addRow(rows++, label, numberTextField);
                     break;
@@ -104,11 +112,12 @@ public class CreateRecordService {
             }
         }
         dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().lookupButton(createButtonType).disableProperty().bind(validationSupport.invalidProperty());
         dialog.setResultConverter(dialogButton -> dialogButton.equals(createButtonType) ? getResult(inputs) : null);
         Platform.runLater(() -> inputs.get(0).requestFocus());
 
         dialog.showAndWait()
-                .map(CreateDatabaseRecordRequest::new)
+                .map(CreateDatabaseRecord::new)
                 .ifPresent(eventBus::post);
     }
 
@@ -118,11 +127,10 @@ public class CreateRecordService {
         return checkBox;
     }
 
-    private TextField createNumberTextField(String name) {
+    private TextField createNumberTextField(String name, ValidationSupport validationSupport) {
         var textField = new TextField();
-        UnaryOperator<TextFormatter.Change> filter = change -> StringUtils.isNumeric(change.getText()) ? change : null;
-        var formatter = new TextFormatter<>(filter);
-        textField.setTextFormatter(formatter);
+        textField.setText("0");
+        validationSupport.registerValidator(textField, Validator.createPredicateValidator(NumberUtils::isParsable, null));
         textField.setId(name);
         return textField;
     }
@@ -133,15 +141,22 @@ public class CreateRecordService {
         return textArea;
     }
 
-    private TextField createIdTextField(String columnName, ObservableList<ObservableMap<String, Object>> database, ValidationSupport validationSupport) {
+    private HBox createIdTextField(String columnName, ObservableList<ObservableMap<String, Object>> database, ValidationSupport validationSupport) {
+        var wrapper = new HBox();
+        wrapper.setSpacing(5.0);
         var textField = new TextField();
+        HBox.setHgrow(textField, Priority.ALWAYS);
+        var generateIdButton = new Button(resourceBundle.getString("create-record.generate-id"));
         validationSupport.registerValidator(textField, Validator.<String>createPredicateValidator(input ->
                 database
                         .stream()
                         .map(entry -> entry.get(columnName).toString())
                         .noneMatch(id -> id.equals(input)), null));
         textField.setId(columnName);
-        return textField;
+        generateIdButton.setOnAction(event -> textField.setText(UUID.randomUUID().toString()));
+
+        wrapper.getChildren().addAll(textField, generateIdButton);
+        return wrapper;
     }
 
     private ObservableMap<String, Object> getResult(List<Node> inputs) {

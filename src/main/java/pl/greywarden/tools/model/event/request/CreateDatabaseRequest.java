@@ -1,4 +1,4 @@
-package pl.greywarden.tools.model.event;
+package pl.greywarden.tools.model.event.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

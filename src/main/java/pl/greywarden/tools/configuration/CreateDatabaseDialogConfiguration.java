@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component;
 import pl.greywarden.tools.controller.CreateDatabaseController;
 
 import javax.annotation.PostConstruct;
-import java.util.Locale;
 import java.util.ResourceBundle;
 
 @Order(1)
@@ -25,6 +24,7 @@ import java.util.ResourceBundle;
 public class CreateDatabaseDialogConfiguration {
     private final ConfigurableApplicationContext springContext;
     private final CreateDatabaseController createDatabaseController;
+    private final ResourceBundle resourceBundle;
 
     @Value("classpath:css/application.css")
     private Resource applicationCss;
@@ -33,7 +33,6 @@ public class CreateDatabaseDialogConfiguration {
     private Resource createDatabaseFxml;
 
     @PostConstruct
-    @SneakyThrows
     public void createDatabaseDialog() {
         Platform.runLater(() -> springContext.getBeanFactory().registerSingleton("createDatabaseDialog", getStage()));
     }
@@ -42,11 +41,10 @@ public class CreateDatabaseDialogConfiguration {
     private Stage getStage() {
         var stage = new Stage();
         var fxmlLoader = new FXMLLoader();
-        var bundle = ResourceBundle.getBundle("i18n/strings", Locale.getDefault());
 
         fxmlLoader.setLocation(createDatabaseFxml.getURL());
         fxmlLoader.setControllerFactory(springContext::getBean);
-        fxmlLoader.setResources(bundle);
+        fxmlLoader.setResources(resourceBundle);
         var root = fxmlLoader.load();
 
         var scene = new Scene((Parent) root);
@@ -55,7 +53,7 @@ public class CreateDatabaseDialogConfiguration {
 
         stage.initStyle(StageStyle.UTILITY);
         stage.setScene(scene);
-        stage.setTitle(bundle.getString("create-database.window-title"));
+        stage.setTitle(resourceBundle.getString("create-database.window-title"));
         stage.setOnCloseRequest(event -> {
             createDatabaseController.cancel();
             event.consume();

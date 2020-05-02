@@ -1,15 +1,15 @@
 package pl.greywarden.tools.component.columns;
 
-import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.ObservableMap;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.cell.TextFieldTableCell;
-import javafx.util.converter.LongStringConverter;
+import javafx.util.converter.DefaultStringConverter;
 
-public class IdTableColumn extends TableColumn<ObservableMap<String, Object>, Long> {
+public class IdTableColumn extends TableColumn<ObservableMap<String, Object>, String> {
     public IdTableColumn(String name) {
         super(name);
-        super.setCellValueFactory(param -> new SimpleObjectProperty<>(Long.parseLong(param.getValue().get(name).toString())));
+        super.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().get(name).toString()));
         super.setCellFactory(tc -> new IdColumnTableCell());
         super.setOnEditCommit(event -> {
             var editedItem = event.getRowValue();
@@ -17,13 +17,13 @@ public class IdTableColumn extends TableColumn<ObservableMap<String, Object>, Lo
         });
     }
 
-    public static class IdColumnTableCell extends TextFieldTableCell<ObservableMap<String, Object>, Long> {
+    public static class IdColumnTableCell extends TextFieldTableCell<ObservableMap<String, Object>, String> {
         public IdColumnTableCell() {
-            super(new LongStringConverter());
+            super(new DefaultStringConverter());
         }
 
         @Override
-        public void commitEdit(Long newValue) {
+        public void commitEdit(String newValue) {
             var table = getTableView();
             var column = getTableColumn();
             var oldValue = getItem();
@@ -34,7 +34,6 @@ public class IdTableColumn extends TableColumn<ObservableMap<String, Object>, Lo
                 var uniqueId = table.getItems()
                         .stream()
                         .map(item -> item.get(columnName).toString())
-                        .map(Long::parseLong)
                         .filter(id -> id.equals(newValue))
                         .findAny().isEmpty();
                 if (uniqueId) {

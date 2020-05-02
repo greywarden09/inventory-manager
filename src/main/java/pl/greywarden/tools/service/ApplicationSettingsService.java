@@ -2,6 +2,7 @@ package pl.greywarden.tools.service;
 
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
 import java.util.prefs.Preferences;
 
 @Service
@@ -9,27 +10,47 @@ public class ApplicationSettingsService {
     private static final String APPLICATION_PACKAGE = "pl/greywarden/tools/inventory_manager";
     private static final Preferences prefs = Preferences.userRoot().node(APPLICATION_PACKAGE);
 
-    public void setProperty(String key, String value) {
-        prefs.put(key, value);
+    public void setDefaultDatabasePath(String path) {
+        prefs.put("default-database-path", path);
     }
 
-    public void setProperty(String key, Boolean value) {
-        prefs.putBoolean(key, value);
+    public void setInitialDirectory(String directoryPath) {
+        prefs.put("initial-directory", directoryPath);
     }
 
-    public void setProperty(String key, double value) {
-        prefs.putDouble(key, value);
+    public void setMaximized(boolean maximized) {
+        prefs.putBoolean("main-window.maximized", maximized);
     }
 
-    public String getString(String key, String defaultValue) {
-        return prefs.get(key, defaultValue);
+    public void setPrefWidth(double width) {
+        prefs.putDouble("main-window.pref-width", width);
     }
 
-    public boolean getBoolean(String key, boolean defaultValue) {
-        return prefs.getBoolean(key, defaultValue);
+    public void setPrefHeight(double height) {
+        prefs.putDouble("main-window.pref-height", height);
     }
 
-    public double getDouble(String key, double defaultValue) {
-        return prefs.getDouble(key, defaultValue);
+    public Locale getLocale() {
+        return Locale.forLanguageTag(prefs.get("application-locale", Locale.getDefault().toLanguageTag()));
+    }
+
+    public Boolean isMaximized() {
+        return prefs.getBoolean("main-window.maximized", true);
+    }
+
+    public String getDefaultDatabasePath() {
+        return prefs.get("default-database-path", System.getProperty("user.home"));
+    }
+
+    public String getInitialDirectory() {
+        return prefs.get("initial-directory", "");
+    }
+
+    public double getPrefWidth() {
+        return prefs.getDouble("main-window.pref-width", 800);
+    }
+
+    public double getPrefHeight() {
+        return prefs.getDouble("main-window.pref-height", 600);
     }
 }

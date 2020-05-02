@@ -1,9 +1,10 @@
-package pl.greywarden.tools.model.event;
+package pl.greywarden.tools.model.event.request;
 
 import lombok.Data;
 import pl.greywarden.tools.model.database.Database;
 
 @Data
-public class SaveDatabaseRequest {
+public class LoadDatabaseRequest {
     private final Database database;
+    private String password;
 }
