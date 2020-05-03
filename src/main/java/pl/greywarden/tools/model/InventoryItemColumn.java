@@ -2,8 +2,10 @@ package pl.greywarden.tools.model;
 
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
+import lombok.EqualsAndHashCode;
 import pl.greywarden.tools.model.database.ColumnType;
 
+@EqualsAndHashCode
 public class InventoryItemColumn {
     private final SimpleStringProperty columnName = new SimpleStringProperty();
     private final SimpleObjectProperty<ColumnType> columnType = new SimpleObjectProperty<>();

@@ -30,6 +30,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import pl.greywarden.tools.listener.EventListener;
+import pl.greywarden.tools.model.IdGenerationStrategy;
 import pl.greywarden.tools.model.event.request.CreateDatabaseRecordRequest;
 import pl.greywarden.tools.model.event.response.CreateDatabaseRecord;
 
@@ -44,6 +45,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CreateRecordService {
     private final ConfigurableApplicationContext springContext;
+    private final DatabaseService databaseService;
     private final ResourceBundle resourceBundle;
 
     public static final String TEXT_FIELD_CLASS = ".text-field";
@@ -55,6 +57,7 @@ public class CreateRecordService {
     public void showCreateRecordDialog(CreateDatabaseRecordRequest createDatabaseRecordRequest) throws Exception {
         var columns = createDatabaseRecordRequest.getColumns();
         var database = createDatabaseRecordRequest.getDatabase();
+        var idGenerationStrategy = createDatabaseRecordRequest.getIdGenerationStrategy();
 
         var eventBus = springContext.getBean(EventBus.class);
 
@@ -89,7 +92,7 @@ public class CreateRecordService {
             var label = new Label(name);
             switch (type) {
                 case ID:
-                    var wrapper = createIdTextField(name, database, validationSupport);
+                    var wrapper = createIdTextField(name, idGenerationStrategy, database, validationSupport);
                     var idTextField = wrapper.lookup(TEXT_FIELD_CLASS);
                     inputs.add(idTextField);
                     grid.addRow(rows++, label, wrapper);
@@ -141,22 +144,45 @@ public class CreateRecordService {
         return textArea;
     }
 
-    private HBox createIdTextField(String columnName, ObservableList<ObservableMap<String, Object>> database, ValidationSupport validationSupport) {
+    private HBox createIdTextField(String columnName, IdGenerationStrategy idGenerationStrategy,
+                                   ObservableList<ObservableMap<String, Object>> database,
+                                   ValidationSupport validationSupport) {
         var wrapper = new HBox();
-        wrapper.setSpacing(5.0);
         var textField = new TextField();
-        HBox.setHgrow(textField, Priority.ALWAYS);
         var generateIdButton = new Button(resourceBundle.getString("create-record.generate-id"));
+
+        HBox.setHgrow(textField, Priority.ALWAYS);
+        wrapper.setSpacing(5.0);
+
         validationSupport.registerValidator(textField, Validator.<String>createPredicateValidator(input ->
-                database
-                        .stream()
-                        .map(entry -> entry.get(columnName).toString())
-                        .noneMatch(id -> id.equals(input)), null));
+                databaseService.findByValue(database, columnName, input).isEmpty(), null));
+
         textField.setId(columnName);
-        generateIdButton.setOnAction(event -> textField.setText(UUID.randomUUID().toString()));
+        generateIdButton.setOnAction(event -> textField.setText(generateId(database, columnName, idGenerationStrategy)));
+        Platform.runLater(() -> textField.setText(generateId(database, columnName, idGenerationStrategy)));
 
         wrapper.getChildren().addAll(textField, generateIdButton);
         return wrapper;
+    }
+
+    private String generateId(ObservableList<ObservableMap<String, Object>> database,
+                              String columnName,
+                              IdGenerationStrategy idGenerationStrategy) {
+        switch (idGenerationStrategy) {
+            case UUID:
+                return UUID.randomUUID().toString();
+            case SEQUENCE:
+                return database
+                        .stream()
+                        .map(entry -> entry.get(columnName).toString())
+                        .filter(NumberUtils::isParsable)
+                        .map(Long::parseLong)
+                        .max(Long::compareTo)
+                        .map(id -> id + 1)
+                        .orElse(1L).toString();
+            default:
+                throw new UnsupportedOperationException();
+        }
     }
 
     private ObservableMap<String, Object> getResult(List<Node> inputs) {

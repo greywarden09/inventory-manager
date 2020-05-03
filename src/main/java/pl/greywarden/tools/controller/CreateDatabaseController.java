@@ -1,74 +1,80 @@
 package pl.greywarden.tools.controller;
 
 import com.google.common.eventbus.EventBus;
-import javafx.application.Platform;
-import javafx.beans.InvalidationListener;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleListProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.controlsfx.tools.ValueExtractor;
+import org.controlsfx.validation.ValidationMessage;
+import org.controlsfx.validation.ValidationSupport;
+import org.controlsfx.validation.Validator;
+import org.controlsfx.validation.decoration.StyleClassValidationDecoration;
 import org.springframework.stereotype.Controller;
 import pl.greywarden.tools.component.EncryptionTypeComboBox;
-import pl.greywarden.tools.component.PasswordFieldWithValidation;
-import pl.greywarden.tools.component.TableViewWithValidation;
-import pl.greywarden.tools.component.TextFieldWithValidation;
+import pl.greywarden.tools.component.IdGeneratorComboBox;
+import pl.greywarden.tools.component.TextFieldWithDefaultValue;
+import pl.greywarden.tools.model.InventoryItemColumn;
 import pl.greywarden.tools.model.database.ColumnType;
 import pl.greywarden.tools.model.event.request.CreateDatabaseRequest;
-import pl.greywarden.tools.model.InventoryItemColumn;
 import pl.greywarden.tools.service.ApplicationSettingsService;
 import pl.greywarden.tools.service.DatabaseService;
 import pl.greywarden.tools.service.DialogService;
 import pl.greywarden.tools.service.FileService;
 
 import java.net.URL;
-import java.text.MessageFormat;
+import java.util.HashSet;
 import java.util.ResourceBundle;
-import java.util.function.Consumer;
 
 @Controller
 @RequiredArgsConstructor
 public class CreateDatabaseController implements Initializable {
-    public static final String DEFAULT_DATABASE_PATH_PROPERTY = "default-database-path";
-
     private final EventBus eventBus;
     private final DatabaseService databaseService;
     private final FileService fileService;
     private final ApplicationSettingsService applicationSettingsService;
     private final DialogService dialogService;
 
+    private final ValidationSupport validationSupport = new ValidationSupport();
+
     private final SimpleBooleanProperty dirtyProperty = new SimpleBooleanProperty(false);
-    private final SimpleBooleanProperty isValidProperty = new SimpleBooleanProperty(false);
     private final ResourceBundle resourceBundle;
 
     @FXML
+    private Button createDatabaseButton;
+    @FXML
+    private IdGeneratorComboBox idGenerator;
+    @FXML
     private VBox createDatabaseDialog;
     @FXML
-    private PasswordFieldWithValidation encryptionPasswordConfirmation;
+    private PasswordField encryptionPasswordConfirmation;
     @FXML
     private EncryptionTypeComboBox encryptionType;
     @FXML
     private CheckBox enableEncryption;
     @FXML
-    private PasswordFieldWithValidation encryptionPassword;
+    private PasswordField encryptionPassword;
     @FXML
-    private TextFieldWithValidation databaseName;
+    private TextField databaseName;
     @FXML
     private TextField newColumnName;
     @FXML
@@ -76,12 +82,14 @@ public class CreateDatabaseController implements Initializable {
     @FXML
     private ComboBox<ColumnType> columnTypes;
     @FXML
-    private TableViewWithValidation<InventoryItemColumn> databaseStructure;
+    private TableView<InventoryItemColumn> databaseStructure;
     @FXML
-    private TextFieldWithValidation databaseDirectory;
+    private TextFieldWithDefaultValue databaseDirectory;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        idGenerator.setResourceBundle(resourceBundle);
+
         var defaultDatabasePath = applicationSettingsService.getDefaultDatabasePath();
         databaseDirectory.setDefaultValue(defaultDatabasePath);
         databaseDirectory.setText(defaultDatabasePath);
@@ -92,14 +100,53 @@ public class CreateDatabaseController implements Initializable {
 
         createColumnButton.disableProperty().bind(newColumnName.textProperty().isEmpty());
 
-        databaseStructure.getItems().addListener((InvalidationListener) change -> dirtyProperty.set(true));
+        databaseStructure.getItems().addListener((ListChangeListener<? super InventoryItemColumn>) c -> dirtyProperty.set(true));
         databaseName.textProperty().addListener(observable -> dirtyProperty.set(true));
 
-        isValidProperty.bind(
-                databaseName.validProperty()
-                        .and(databaseDirectory.validProperty()
-                                .and(databaseStructure.validProperty()
-                                        .and(encryptionPassword.validProperty()))));
+        initializeValidation();
+    }
+
+    @SneakyThrows
+    private void initializeValidation() {
+        var decor = new StyleClassValidationDecoration("error", "error");
+        validationSupport.setValidationDecorator(decor);
+        ValueExtractor.addObservableValueExtractor(c -> c instanceof TableView<?>, c -> new SimpleListProperty<>(((TableView<?>) c).itemsProperty().getValue()));
+
+        validationSupport.registerValidator(databaseName,
+                Validator.createPredicateValidator(StringUtils::isNotEmpty,
+                        resourceBundle.getString("create-database.validation-error.name-empty")));
+        validationSupport.registerValidator(databaseDirectory,
+                Validator.createPredicateValidator(databaseService::isValidDirectory,
+                        resourceBundle.getString("create-database.validation-error.invalid-path")));
+        validationSupport.registerValidator(databaseStructure,
+                Validator.createPredicateValidator(CollectionUtils::isNotEmpty,
+                        resourceBundle.getString("create-database.validation-error.empty-columns")));
+        validationSupport.registerValidator(encryptionPassword,
+                Validator.createPredicateValidator(this::validateEncryptionPassword,
+                        resourceBundle.getString("create-database.validation-error.password-empty")));
+        validationSupport.registerValidator(encryptionPasswordConfirmation,
+                Validator.createPredicateValidator(this::validateEncryptionPasswordConfirmation,
+                        resourceBundle.getString("create-database.validation-error.passwords-not-matching")));
+
+        validationSupport.validationResultProperty().addListener((observable, oldValue, newValue) -> {
+            validationSupport.getRegisteredControls().forEach(e -> e.setTooltip(null));
+            var validationMessages = newValue.getMessages();
+            validationMessages.forEach(this::installTooltip);
+        });
+
+        createDatabaseButton.disableProperty().bind(validationSupport.invalidProperty());
+    }
+
+    private void installTooltip(ValidationMessage validationMessage) {
+        validationMessage.getTarget().setTooltip(new Tooltip(validationMessage.getText()));
+    }
+
+    private boolean validateEncryptionPasswordConfirmation(String passwordConfirmation) {
+        return !enableEncryption.isSelected() || (StringUtils.isNotEmpty(passwordConfirmation) && StringUtils.equals(passwordConfirmation, encryptionPassword.getText()));
+    }
+
+    private boolean validateEncryptionPassword(String password) {
+        return !enableEncryption.isSelected() || StringUtils.isNotEmpty(password);
     }
 
     @FXML
@@ -117,16 +164,15 @@ public class CreateDatabaseController implements Initializable {
         var columnType = columnTypes.getSelectionModel().getSelectedItem();
 
         if (containsColumnWithName(columnName)) {
-            var styleClass = newColumnName.getStyleClass();
-            if (!styleClass.contains("error")) {
-                newColumnName.getStyleClass().add("error");
-            }
+            var styleClass = new HashSet<>(newColumnName.getStyleClass());
+            styleClass.add("error");
+            newColumnName.getStyleClass().setAll(styleClass);
         } else {
-            newColumnName.getStyleClass().remove("error");
-            databaseStructure.getItems().add(new InventoryItemColumn(newColumnName.getText(), columnType));
+            newColumnName.getStyleClass().removeIf("error"::equals);
+            databaseStructure.itemsProperty().get().add(new InventoryItemColumn(newColumnName.getText(), columnType));
             newColumnName.setText(null);
             if (containsIdColumn()) {
-                columnTypes.getItems().remove(ColumnType.ID);
+                columnTypes.itemsProperty().get().remove(ColumnType.ID);
             }
             if (columnTypes.getSelectionModel().getSelectedItem() == null) {
                 columnTypes.getSelectionModel().selectFirst();
@@ -148,7 +194,7 @@ public class CreateDatabaseController implements Initializable {
     private void databaseStructureEventHandler(KeyEvent keyEvent) {
         if (KeyCode.DELETE == keyEvent.getCode()) {
             var selectedItem = databaseStructure.getSelectionModel().getSelectedItem();
-            databaseStructure.getItems().remove(selectedItem);
+            databaseStructure.itemsProperty().get().remove(selectedItem);
             if (!containsIdColumn()) {
                 columnTypes.setItems(FXCollections.observableArrayList(ColumnType.values()));
             }
@@ -158,7 +204,7 @@ public class CreateDatabaseController implements Initializable {
     @FXML
     public void cancel() {
         if (dirtyProperty.get()) {
-            showConfirmationDialog("create-database.confirm-cancel", "create-database.confirm-cancel-title",
+            dialogService.showConfirmationDialog(getStage(), "create-database.confirm-cancel", "create-database.confirm-cancel-title",
                     buttonType -> {
                         if (buttonType.equals(ButtonType.YES)) {
                             clearAndClose();
@@ -169,48 +215,34 @@ public class CreateDatabaseController implements Initializable {
         }
     }
 
-    private void showConfirmationDialog(String messageKey, String titleKey, Consumer<ButtonType> handler, Object... args) {
-        var formatter = new MessageFormat("");
-        formatter.applyPattern(resourceBundle.getString(messageKey));
-        var message = formatter.format(args);
-        var alert = new Alert(Alert.AlertType.CONFIRMATION, null, ButtonType.YES, ButtonType.NO);
-        alert.getDialogPane().setContent(new Label(message));
-        alert.setTitle(resourceBundle.getString(titleKey));
-        alert.setHeaderText(null);
-        alert.setGraphic(null);
-
-        dialogService.bringAlertTop(getStage(), alert);
-        alert.showAndWait().ifPresent(handler);
-    }
-
     @FXML
     private void createDatabase() {
-        validateInput();
         var databasePath = databaseService.getDatabasePath(databaseDirectory.getText(), databaseName.getText());
-        if (isValidProperty.get()) {
-            if (fileService.hasReadWritePermission(databaseDirectory.getText())) {
-                if (fileService.exists(databasePath)) {
-                    showConfirmationDialog("create-database.file-exists", "create-database.file-exists.title", buttonType -> {
-                        if (buttonType.equals(ButtonType.YES)) {
-                            createAndPostDatabaseCreationRequest(databasePath);
-                            clearAndClose();
-                        }
-                    }, databasePath);
-                } else {
-                    createAndPostDatabaseCreationRequest(databasePath);
-                    clearAndClose();
-                }
+        if (fileService.hasReadWritePermission(databaseDirectory.getText())) {
+            if (fileService.exists(databasePath)) {
+                confirmDatabaseCreationIfFileExists(databasePath);
             } else {
-                showWarningDialog("create-database.no-permission", "create-database.no-permission.title", databasePath);
+                createAndPostDatabaseCreationRequest(databasePath);
+                clearAndClose();
             }
         } else {
-            showWarningDialog("create-database.validation-error", "create-database.validation-error.title");
+            dialogService.showWarningDialog(getStage(), "create-database.no-permission", "create-database.no-permission.title", databasePath);
         }
+    }
+
+    private void confirmDatabaseCreationIfFileExists(String databasePath) {
+        dialogService.showConfirmationDialog(getStage(), "create-database.file-exists", "create-database.file-exists.title", buttonType -> {
+            if (buttonType.equals(ButtonType.YES)) {
+                createAndPostDatabaseCreationRequest(databasePath);
+                clearAndClose();
+            }
+        }, databasePath);
     }
 
     private void createAndPostDatabaseCreationRequest(String databasePath) {
         var request = new CreateDatabaseRequest()
                 .withDatabasePath(databasePath)
+                .withIdGenerationStrategy(idGenerator.getSelectionModel().getSelectedItem())
                 .withColumns(databaseStructure.getItems())
                 .withEncryption(enableEncryption.isSelected());
         if (enableEncryption.isSelected()) {
@@ -220,42 +252,6 @@ public class CreateDatabaseController implements Initializable {
         }
         eventBus.post(request);
         applicationSettingsService.setDefaultDatabasePath(databaseDirectory.getText());
-        databaseDirectory.setDefaultValue(databaseDirectory.getText());
-    }
-
-    private void bringAlertTop(Alert alert) {
-        var stage = (Stage) alert.getDialogPane().getScene().getWindow();
-        stage.initStyle(StageStyle.UTILITY);
-        stage.initModality(Modality.APPLICATION_MODAL);
-        stage.initOwner(getStage());
-        stage.setAlwaysOnTop(true);
-        Platform.runLater(stage::requestFocus);
-    }
-
-    private void validateInput() {
-        databaseName.validate(StringUtils::isNotEmpty, resourceBundle.getString("create-database.validation-error.name-empty"));
-        databaseDirectory.validate(databaseService::isValidDirectory, resourceBundle.getString("create-database.validation-error.invalid-path"));
-        databaseStructure.validate(CollectionUtils::isNotEmpty, resourceBundle.getString("create-database.validation-error.empty-columns"));
-        encryptionPassword.validate(this::validateEncryptionPassword, resourceBundle.getString("create-database.validation-error.password-empty"));
-        encryptionPasswordConfirmation.validate(this::validateEncryptionPasswordConfirmation, resourceBundle.getString("create-database.validation-error.passwords-not-matching"));
-    }
-
-    private Boolean validateEncryptionPassword(String password) {
-        if (enableEncryption.isSelected()) {
-            return StringUtils.isNotEmpty(password);
-        }
-        return true;
-    }
-
-    private Boolean validateEncryptionPasswordConfirmation(String password) {
-        if (enableEncryption.isSelected()) {
-            var encryptionPassword = this.encryptionPassword.getText();
-            var encryptionPasswordConfirmation = this.encryptionPasswordConfirmation.getText();
-            return StringUtils.isNotEmpty(encryptionPassword)
-                    && StringUtils.isNotEmpty(encryptionPasswordConfirmation)
-                    && encryptionPasswordConfirmation.equals(encryptionPassword);
-        }
-        return true;
     }
 
     private boolean containsIdColumn() {
@@ -278,28 +274,19 @@ public class CreateDatabaseController implements Initializable {
         clear();
         closeWindow();
         dirtyProperty.set(false);
+        validationSupport.initInitialDecoration();
     }
 
     private void clear() {
-        databaseName.invalidate();
-        databaseDirectory.invalidate();
-        databaseStructure.invalidate();
+        databaseName.setText(null);
+        databaseDirectory.setText(databaseDirectory.getDefaultValue());
+        databaseStructure.itemsProperty().get().clear();
+        encryptionPassword.setText(null);
+        encryptionPasswordConfirmation.setText(null);
 
         newColumnName.setText(null);
 
         columnTypes.setItems(FXCollections.observableArrayList(ColumnType.values()));
         columnTypes.getSelectionModel().selectFirst();
     }
-
-    private void showWarningDialog(String messageKey, String titleKey, Object... args) {
-        var formatter = new MessageFormat("");
-        formatter.applyPattern(resourceBundle.getString(messageKey));
-        var errorMessage = formatter.format(args);
-        var alert = new Alert(Alert.AlertType.WARNING, errorMessage);
-        alert.setHeaderText(null);
-        alert.setTitle(resourceBundle.getString(titleKey));
-        bringAlertTop(alert);
-        alert.show();
-    }
-
 }

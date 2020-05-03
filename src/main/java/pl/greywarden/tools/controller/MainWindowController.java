@@ -11,12 +11,14 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableMap;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -24,7 +26,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Controller;
 import pl.greywarden.tools.component.ButtonWithIcon;
-import pl.greywarden.tools.component.DatabaseTableView;
 import pl.greywarden.tools.component.MenuItemWithIcon;
 import pl.greywarden.tools.component.PasswordInputDialog;
 import pl.greywarden.tools.component.columns.BooleanTableColumn;
@@ -69,7 +70,7 @@ public class MainWindowController implements Initializable {
     private final ObjectProperty<List<Column>> columns = new SimpleObjectProperty<>(new ArrayList<>());
 
     @FXML
-    private DatabaseTableView databaseContent;
+    private TableView<ObservableMap<String, Object>> databaseContent;
     @FXML
     private MenuItemWithIcon saveDatabaseMenuItem;
     @FXML
@@ -185,7 +186,10 @@ public class MainWindowController implements Initializable {
     @FXML
     private void createEntry() {
         var eventBus = getEventBus();
-        eventBus.post(new CreateDatabaseRecordRequest(columns.get(), databaseContent.getItems()));
+        var columns = this.columns.get();
+        var idGenerationStrategy = this.database.get().<DatabaseContent>getDatabaseContent().getIdGenerationStrategy();
+        var items = databaseContent.getItems();
+        eventBus.post(new CreateDatabaseRecordRequest(columns, idGenerationStrategy,  items));
     }
 
     @FXML

@@ -6,18 +6,17 @@
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
-<?import javafx.scene.layout.Region?>
-
-<?import pl.greywarden.tools.component.TextFieldWithValidation?>
-<?import pl.greywarden.tools.component.TableViewWithValidation?>
-<?import pl.greywarden.tools.component.PasswordFieldWithValidation?>
 <?import pl.greywarden.tools.component.EncryptionTypeComboBox?>
+<?import pl.greywarden.tools.component.IdGeneratorComboBox?>
+<?import pl.greywarden.tools.component.TextFieldWithDefaultValue?>
 <VBox xmlns="http://javafx.com/javafx"
       xmlns:fx="http://javafx.com/fxml"
       prefWidth="400.0"
@@ -29,10 +28,10 @@
     </padding>
 
     <Label text="%create-database.database-name"/>
-    <TextFieldWithValidation fx:id="databaseName"/>
+    <TextFieldWithDefaultValue fx:id="databaseName"/>
     <Label text="%create-database.database-location"/>
     <HBox spacing="2">
-        <TextFieldWithValidation fx:id="databaseDirectory" HBox.hgrow="ALWAYS"/>
+        <TextFieldWithDefaultValue fx:id="databaseDirectory" HBox.hgrow="ALWAYS"/>
         <Button onAction="#selectDirectoryForDatabase">
             <graphic>
                 <FontIcon iconLiteral="mdi-folder" iconSize="16"/>
@@ -51,7 +50,7 @@
                 </graphic>
             </Button>
         </HBox>
-        <TableViewWithValidation fx:id="databaseStructure" onKeyPressed="#databaseStructureEventHandler">
+        <TableView fx:id="databaseStructure" onKeyPressed="#databaseStructureEventHandler">
             <columnResizePolicy>
                 <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
             </columnResizePolicy>
@@ -70,8 +69,10 @@
                     </cellValueFactory>
                 </TableColumn>
             </columns>
-        </TableViewWithValidation>
+        </TableView>
     </VBox>
+    <Label text="%create-database.id-generator"/>
+    <IdGeneratorComboBox fx:id="idGenerator" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefWidth="390"/>
 
     <CheckBox fx:id="enableEncryption" text="%create-database.database-encryption"/>
     <VBox spacing="1.5" disable="${!enableEncryption.selected}">
@@ -81,9 +82,9 @@
         <Label text="%create-database.encryption-type"/>
         <EncryptionTypeComboBox fx:id="encryptionType" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefWidth="390"/>
         <Label text="%create-database.encryption-password"/>
-        <PasswordFieldWithValidation fx:id="encryptionPassword"/>
+        <PasswordField fx:id="encryptionPassword"/>
         <Label text="%create-database.encryption-password-confirmation"/>
-        <PasswordFieldWithValidation fx:id="encryptionPasswordConfirmation"/>
+        <PasswordField fx:id="encryptionPasswordConfirmation"/>
     </VBox>
 
     <HBox spacing="1.5">
@@ -92,7 +93,7 @@
         </padding>
         <Region HBox.hgrow="ALWAYS"/>
         <Button text="%create-database.cancel" prefWidth="100" onAction="#cancel"/>
-        <Button text="%create-database.confirm-create" styleClass="text-bold" prefWidth="100" onAction="#createDatabase"/>
+        <Button fx:id="createDatabaseButton" text="%create-database.confirm-create" styleClass="text-bold" prefWidth="100" onAction="#createDatabase"/>
     </HBox>
 
 </VBox>
